@@ -1,100 +1,81 @@
-# Tarkov Interactive Map Tracker
+# 🎯 Tarkov Interactive Map Tracker
 
-A Python-based desktop application for Escape from Tarkov that provides real-time position tracking and interactive maps, replicating the functionality of tarkov-market.com/maps with enhanced live tracking capabilities.
+> **Real-time position tracking for Escape from Tarkov PVE**
+>
+> Made this for myself and my buddies so we can actually know where we are in raids without alt-tabbing every 5 seconds.
 
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-brightgreen.svg)
 ![Streamlit](https://img.shields.io/badge/streamlit-1.30%2B-red.svg)
 
-## 🌟 Features
 
-- **Real-Time Position Tracking**: Automatically parses screenshot filenames to extract and display your current position on the map
-- **Interactive Maps**: Multi-level, zoomable maps powered by Folium
-- **Quest Overlays**: Display active quest objectives directly on the map
-- **Live Monitoring**: Auto-refresh position updates while playing
-- **Dark Tactical UI**: Clean, military-themed interface built with Streamlit
-- **GraphQL API Integration**: Leverages tarkov.dev API for up-to-date quest and map data
-- **Log File Monitoring**: Detects map changes and game events from EFT logs
+## ✨ What It Does
 
-## 📋 Prerequisites
+- **🎯 Position Tracking** - Reads your screenshot filenames to figure out where you are on the map
+- **🗺️ Interactive Maps** - Zoomable maps so you can actually see where stuff is
+- **📍 Quest Markers** - Shows where your quest objectives are (super helpful for those annoying fetch quests)
+- **🔄 Auto-Refresh** - Updates your position automatically, no clicking needed
+- **🎨 Dark UI** - Looks pretty decent and won't blind you at 2 AM
+- **⚡ Live Data** - Uses tarkov.dev API for quest info and maps
+- **📊 Log Monitoring** - Watches your game logs to detect when you switch maps
 
-- **Python 3.11 or later**
-- **Git** (for cloning submodules)
-- **Escape from Tarkov** installed
-- **Internet connection** (for API queries)
+## 📋 What You Need
 
-## 🚀 Installation
+- **Python 3.11+** - [Get it here](https://www.python.org/)
+- **Tarkov installed** (obviously)
 
-### Windows
+## 🚀 How to Run This Thing
 
-1. **Clone or download this repository**
-   ```bash
-   git clone <your-repo-url>
-   cd tarkov-map-tracker
-   ```
+### The Easy Way
 
-2. **Run the setup script**
-   ```bash
-   setup.bat
-   ```
+1. **Download/clone this project**
+
+2. **Double-click `start.bat`**
    
-   This will:
-   - Initialize git repository
-   - Clone all required the-hideout submodules
-   - Create a Python virtual environment
-   - Install all dependencies
-
-3. **Configure paths**
+   First time: It'll set up everything automatically (takes a minute)
    
-   Edit `config.yaml` with your EFT installation paths:
+   After that: Opens instantly
+
+3. **(Optional) Fix your paths**
+   
+   If your Tarkov isn't in the default spot, edit `config.yaml`:
    ```yaml
    eft:
      install_path: "C:/Battlestate Games/EFT"
-     log_path: "%APPDATA%/../LocalLow/Battlestate Games/EscapeFromTarkov"
      screenshot_path: "%USERPROFILE%/Documents/Escape from Tarkov/Screenshots"
    ```
 
-### Manual Installation
+### Advanced Installation
 
-If the setup script doesn't work, follow these steps:
+If you prefer manual control or want to contribute:
 
 ```bash
-# 1. Initialize git and add submodules
-git init
-git submodule add https://github.com/the-hideout/TarkovMonitor.git vendor/TarkovMonitor
-git submodule add https://github.com/the-hideout/tarkov-api.git vendor/tarkov-api
-git submodule add https://github.com/the-hideout/tarkov-dev-svg-maps.git vendor/tarkov-dev-svg-maps
-git submodule add https://github.com/the-hideout/tarkov-dev.git vendor/tarkov-dev
-git submodule update --init --recursive
-
-# 2. Create virtual environment
+# 1. Create virtual environment
 python -m venv venv
 
-# 3. Activate virtual environment
-# On Windows:
+# 2. Activate it
 venv\Scripts\activate.bat
-# On Linux/Mac:
-source venv/bin/activate
 
-# 4. Install dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Run the app
+streamlit run app.py
 ```
 
 ## 📖 Usage
 
 ### Starting the Application
 
-1. **Activate the virtual environment:**
-   ```bash
-   venv\Scripts\activate.bat
-   ```
+**Easy way:** Just double-click `start.bat`
 
-2. **Run the Streamlit app:**
-   ```bash
-   streamlit run app.py
-   ```
+**Manual way:**
+```bash
+venv\Scripts\activate.bat
+streamlit run app.py
+```
 
-3. **Open your browser** to the local URL shown (typically `http://localhost:8501`)
+The app will open automatically in your browser at `http://localhost:8501`
 
 ### Using the Tracker
 
@@ -207,21 +188,13 @@ This project uses code and data from:
 
 ## ⚠️ Disclaimer
 
-This project is **not affiliated with or endorsed by Battlestate Games**. Escape from Tarkov is a trademark of Battlestate Games Limited.
+This isn't official or anything - just a fan project. EFT belongs to Battlestate Games.
 
-Use at your own risk. This tool does not modify game files or memory and only reads publicly accessible log files and screenshots.
+It's totally safe though - just reads screenshots and log files, doesn't touch the game at all.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit pull requests or open issues.
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+If you wanna improve something or fix a bug, go for it! PRs are welcome.
 
 ## 📞 Support
 
@@ -239,4 +212,12 @@ For issues and questions:
 
 ---
 
-**Built with ❤️ for the Tarkov community**
+## 👤 About This Thing
+
+Made by **Shadesz** with some help from AI because why not.
+
+Originally whipped this up for myself and my friends to use in PVE mode. We kept getting lost and I was tired of alt-tabbing to check maps every 30 seconds, so... here we are.
+
+Feel free to use it if you want! It works pretty well for us.
+
+*Good luck out there, try not to die immediately* ⚡
