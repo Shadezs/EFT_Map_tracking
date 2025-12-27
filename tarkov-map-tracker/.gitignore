@@ -1,0 +1,34 @@
+# Tarkov Map Tracker
+
+vendor/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test outputs
+test_map.html
+*.png
+*.jpg
+
+# User config (keep template)
+# config.yaml

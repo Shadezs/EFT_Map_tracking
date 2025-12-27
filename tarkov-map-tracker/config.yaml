@@ -1,0 +1,25 @@
+# Tarkov Map Tracker Configuration
+# Edit these paths to match your system
+
+eft:
+  # Path to your EFT installation
+  install_path: "C:/Battlestate Games/EFT"
+  
+  # Path to EFT log files (typically in AppData\LocalLow)
+  log_path: "%APPDATA%/../LocalLow/Battlestate Games/EscapeFromTarkov"
+  
+  # Path to your EFT screenshots folder
+  screenshot_path: "%USERPROFILE%/Documents/Escape from Tarkov/Screenshots"
+
+app:
+  # How often to check for new screenshots (seconds)
+  auto_refresh_interval: 2
+  
+  # Default map to display on startup
+  default_map: "customs"
+  
+  # API response cache duration (seconds)
+  cache_ttl: 300
+  
+  # Enable debug logging
+  debug: false

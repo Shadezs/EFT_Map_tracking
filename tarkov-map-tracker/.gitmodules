@@ -1,0 +1,12 @@
+[submodule "vendor/TarkovMonitor"]
+	path = vendor/TarkovMonitor
+	url = https://github.com/the-hideout/TarkovMonitor.git
+[submodule "vendor/tarkov-api"]
+	path = vendor/tarkov-api
+	url = https://github.com/the-hideout/tarkov-api.git
+[submodule "vendor/tarkov-dev-svg-maps"]
+	path = vendor/tarkov-dev-svg-maps
+	url = https://github.com/the-hideout/tarkov-dev-svg-maps.git
+[submodule "vendor/tarkov-dev"]
+	path = vendor/tarkov-dev
+	url = https://github.com/the-hideout/tarkov-dev.git
