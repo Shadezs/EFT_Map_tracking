@@ -12,12 +12,13 @@
 ## ✨ What It Does
 
 - **🎯 Position Tracking** - Reads your screenshot filenames to figure out where you are on the map
-- **🗺️ Interactive Maps** - Zoomable maps so you can actually see where stuff is
+- **🗺️ Real Tarkov Maps** - Uses actual SVG maps from tarkov.dev (same ones the website uses!)
 - **📍 Quest Markers** - Shows where your quest objectives are (super helpful for those annoying fetch quests)
 - **🔄 Auto-Refresh** - Updates your position automatically, no clicking needed
 - **🎨 Dark UI** - Looks pretty decent and won't blind you at 2 AM
-- **⚡ Live Data** - Uses tarkov.dev API for quest info and maps
+- **⚡ Live Data** - Uses tarkov.dev API for quest info
 - **📊 Log Monitoring** - Watches your game logs to detect when you switch maps
+- **🔍 Zoom & Pan** - Interactive maps you can zoom and pan around easily
 
 ## 📋 What You Need
 

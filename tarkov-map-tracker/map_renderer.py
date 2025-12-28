@@ -1,327 +1,298 @@
 """
 Map Renderer
-Renders interactive Tarkov maps using Folium with SVG overlays.
-
-Integrates with tarkov-dev-svg-maps for map data.
+Renders interactive Tarkov maps using SVG maps and configuration from tarkov.dev.
 """
 
-import folium
-from folium import plugins
-from typing import Dict, List, Optional, Tuple, Any
 import os
 import json
+import requests
+import math
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any
+import xml.etree.ElementTree as ET
 
 
 class MapRenderer:
-    """Renders interactive maps with position markers and quest overlays."""
+    """Renders interactive maps using SVG files and data from tarkov.dev."""
     
-    # Map bounds calibration (lat/lon coordinates)
-    # These need to be calibrated based on actual game coordinates
-    MAP_BOUNDS = {
-        'customs': {
-            'min_lat': -90.0,
-            'max_lat': 90.0,
-            'min_lon': -180.0,
-            'max_lon': 180.0,
-            'center': [0.0, 0.0],
-            'zoom': 3
-        },
-        'woods': {
-            'min_lat': -90.0,
-            'max_lat': 90.0,
-            'min_lon': -180.0,
-            'max_lon': 180.0,
-            'center': [0.0, 0.0],
-            'zoom': 3
-        },
-        'shoreline': {
-            'min_lat': -90.0,
-            'max_lat': 90.0,
-            'min_lon': -180.0,
-            'max_lon': 180.0,
-            'center': [0.0, 0.0],
-            'zoom': 3
-        }
-    }
+    # URLs for data and maps
+    MAPS_JSON_URL = "https://raw.githubusercontent.com/the-hideout/tarkov-dev/main/src/data/maps.json"
+    SVG_BASE_URL = "https://raw.githubusercontent.com/the-hideout/tarkov-dev-svg-maps/main"
     
-    def __init__(self, svg_maps_path: Optional[str] = None):
+    def __init__(self, cache_dir: Optional[str] = None):
         """
         Initialize map renderer.
         
         Args:
-            svg_maps_path: Path to tarkov-dev-svg-maps repository
+            cache_dir: Directory to cache downloaded files
         """
-        self.svg_maps_path = svg_maps_path or "vendor/tarkov-dev-svg-maps"
-        
-    def _game_to_map_coords(self, x: float, y: float, map_name: str) -> Tuple[float, float]:
-        """
-        Convert game coordinates to map lat/lon coordinates.
-        
-        This is a placeholder - actual conversion needs calibration.
-        
-        Args:
-            x: Game X coordinate
-            y: Game Y coordinate
-            map_name: Map identifier
-            
-        Returns:
-            Tuple of (latitude, longitude)
-        """
-        bounds = self.MAP_BOUNDS.get(map_name, self.MAP_BOUNDS['customs'])
-        
-        # Simple linear scaling (needs proper calibration)
-        # Game coords typically range from -500 to 500 (approximate)
-        game_range = 1000.0
-        
-        lat_range = bounds['max_lat'] - bounds['min_lat']
-        lon_range = bounds['max_lon'] - bounds['min_lon']
-        
-        lat = bounds['min_lat'] + ((x + 500) / game_range) * lat_range
-        lon = bounds['min_lon'] + ((y + 500) / game_range) * lon_range
-        
-        return (lat, lon)
+        self.cache_dir = Path(cache_dir or "map_cache")
+        self.cache_dir.mkdir(exist_ok=True)
+        self.maps_config = self._load_maps_config()
     
-    def create_map(self, map_name: str, level: int = 1) -> folium.Map:
-        """
-        Create a base Folium map for the specified Tarkov map.
+    def _load_maps_config(self) -> List[Dict[str, Any]]:
+        """Load maps configuration from GitHub or cache."""
+        local_path = self.cache_dir / "maps.json"
         
-        Args:
-            map_name: Map name (e.g., 'customs')
-            level: Map level/floor (for multi-level maps)
+        # Try local cache first
+        if local_path.exists():
+            try:
+                with open(local_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        
+        # Download from GitHub
+        try:
+            response = requests.get(self.MAPS_JSON_URL, timeout=10)
+            if response.status_code == 200:
+                config = response.json()
+                with open(local_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f)
+                return config
+        except Exception as e:
+            print(f"Error loading maps config: {e}")
+        
+        return []
+
+    def _get_map_config(self, normalized_name: str) -> Optional[Dict[str, Any]]:
+        """Get configuration for a specific map."""
+        for map_entry in self.maps_config:
+            if map_entry.get('normalizedName') == normalized_name:
+                # Use the 'interactive' projection map if available
+                for m in map_entry.get('maps', []):
+                    if m.get('projection') == 'interactive':
+                        return m
+                # Fallback to first map
+                if map_entry.get('maps'):
+                    return map_entry['maps'][0]
+        return None
+
+    def _get_svg_content(self, map_config: Dict[str, Any]) -> Optional[str]:
+        """Download or load SVG content."""
+        svg_url = map_config.get('svgPath')
+        if not svg_url:
+            # Construct from name if not provided (fallback)
+            svg_filename = f"{map_config.get('key','').capitalize()}.svg"
+            svg_url = f"{self.SVG_BASE_URL}/{svg_filename}"
+        
+        filename = Path(svg_url).name
+        local_path = self.cache_dir / filename
+        
+        if local_path.exists():
+            with open(local_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        
+        try:
+            print(f"Downloading SVG from: {svg_url}")
+            response = requests.get(svg_url, timeout=10)
+            if response.status_code == 200:
+                svg_content = response.text
+                with open(local_path, 'w', encoding='utf-8') as f:
+                    f.write(svg_content)
+                return svg_content
+            else:
+                print(f"Failed to download SVG: HTTP {response.status_code}")
+        except Exception as e:
+            print(f"Error downloading SVG: {e}")
             
-        Returns:
-            Folium Map object
-        """
-        bounds = self.MAP_BOUNDS.get(map_name, self.MAP_BOUNDS['customs'])
-        
-        # Create base map
-        m = folium.Map(
-            location=bounds['center'],
-            zoom_start=bounds['zoom'],
-            tiles='OpenStreetMap',
-            control_scale=True,
-            prefer_canvas=True
-        )
-        
-        # Add fullscreen control
-        plugins.Fullscreen(
-            position='topright',
-            title='Fullscreen',
-            title_cancel='Exit fullscreen',
-            force_separate_button=True
-        ).add_to(m)
-        
-        # Add mouse position display
-        plugins.MousePosition(
-            position='bottomleft',
-            separator=' | ',
-            prefix='Position:',
-            num_digits=2
-        ).add_to(m)
-        
-        return m
-    
-    def add_svg_overlay(self, m: folium.Map, map_name: str, level: int = 1) -> folium.Map:
-        """
-        Add SVG map overlay from tarkov-dev-svg-maps.
-        
-        Args:
-            m: Folium map object
-            map_name: Map name
-            level: Map level/floor
-            
-        Returns:
-            Modified map object
-        """
-        # Path to SVG file
-        svg_path = os.path.join(
-            self.svg_maps_path,
-            f"{map_name}_level{level}.svg"
-        )
-        
-        # Check if SVG exists
-        if os.path.exists(svg_path):
-            bounds = self.MAP_BOUNDS.get(map_name, self.MAP_BOUNDS['customs'])
-            image_bounds = [
-                [bounds['min_lat'], bounds['min_lon']],
-                [bounds['max_lat'], bounds['max_lon']]
-            ]
-            
-            # Note: Folium doesn't directly support SVG overlays
-            # You may need to convert SVG to PNG or use a different approach
-            # For now, we'll add a placeholder comment
-            # TODO: Integrate actual SVG rendering or convert to raster
-            pass
-        
-        return m
-    
-    def add_player_marker(
+        return None
+
+    def _calculate_svg_coords(
         self, 
-        m: folium.Map, 
-        position: Dict[str, float], 
-        map_name: str
-    ) -> folium.Map:
+        game_x: float, 
+        game_y: float, 
+        map_config: Dict[str, Any],
+        width: float,
+        height: float
+    ) -> Tuple[float, float]:
         """
-        Add player position marker to the map.
-        
-        Args:
-            m: Folium map object
-            position: Position dict with x, y, z, rotation
-            map_name: Map name for coordinate conversion
-            
-        Returns:
-            Modified map object
+        Convert game coordinates to SVG coordinates based on bounds and rotation.
         """
-        lat, lon = self._game_to_map_coords(
-            position['x'],
-            position['y'],
-            map_name
-        )
+        bounds = map_config.get('bounds')
+        rotation = map_config.get('coordinateRotation', 0)
         
-        # Create custom icon with rotation indicator
-        icon_html = f"""
-        <div style="transform: rotate({position['rotation']}deg);">
-            <i class="fa fa-location-arrow" style="color: red; font-size: 24px;"></i>
-        </div>
-        """
-        
-        # Add marker
-        folium.Marker(
-            location=[lat, lon],
-            popup=f"You are here<br>Z: {position['z']:.1f}m<br>Facing: {position['rotation']}°",
-            tooltip="Your Position",
-            icon=folium.DivIcon(html=icon_html)
-        ).add_to(m)
-        
-        # Add circle for visibility
-        folium.Circle(
-            location=[lat, lon],
-            radius=10,
-            color='red',
-            fill=True,
-            fillColor='red',
-            fillOpacity=0.3,
-            popup="You are here"
-        ).add_to(m)
-        
-        return m
-    
-    def add_quest_markers(
-        self, 
-        m: folium.Map, 
-        quests: List[Dict[str, Any]], 
-        map_name: str
-    ) -> folium.Map:
-        """
-        Add quest objective markers to the map.
-        
-        Args:
-            m: Folium map object
-            quests: List of quest data dicts
-            map_name: Map name for coordinate conversion
+        if not bounds or len(bounds) < 2:
+            # Fallback to rough estimation
+            return (game_x + 500), (500 - game_y)
             
-        Returns:
-            Modified map object
-        """
-        # Create feature group for quest markers
-        quest_group = folium.FeatureGroup(name='Quest Objectives')
+        # Bounds format: [[minX, maxY], [maxX, minY]]
+        min_x = bounds[1][0] if bounds[0][0] > bounds[1][0] else bounds[0][0]
+        max_x = bounds[0][0] if bounds[0][0] > bounds[1][0] else bounds[1][0]
+        min_y = bounds[1][1] if bounds[0][1] > bounds[1][1] else bounds[0][1]
+        max_y = bounds[0][1] if bounds[0][1] > bounds[1][1] else bounds[1][1]
         
-        for quest in quests:
-            # TODO: Extract actual coordinates from quest data
-            # For now, use placeholder positions
-            # In reality, you'd need coordinate data from the API or map data
-            
-            quest_name = quest.get('quest_name', 'Unknown Quest')
-            obj_desc = quest.get('objective_description', 'Complete objective')
-            
-            # Placeholder: random position for demonstration
-            # Replace with actual quest location coordinates
-            lat, lon = 0.0, 0.0
-            
-            folium.Marker(
-                location=[lat, lon],
-                popup=f"<b>{quest_name}</b><br>{obj_desc}",
-                tooltip=quest_name,
-                icon=folium.Icon(color='blue', icon='info-sign')
-            ).add_to(quest_group)
+        # Apply rotation to game coordinates if needed
+        # (This is a simplified version, real rotation might be more complex)
+        rad = math.radians(rotation)
+        rot_x = game_x * math.cos(rad) - game_y * math.sin(rad)
+        rot_y = game_x * math.sin(rad) + game_y * math.cos(rad)
         
-        quest_group.add_to(m)
+        # Scale to map dimensions
+        # This is where we'd need the SVG viewBox actually
+        # But for now let's use the percentile within bounds
+        range_x = max_x - min_x if max_x != min_x else 1000
+        range_y = max_y - min_y if max_y != min_y else 1000
         
-        # Add layer control
-        folium.LayerControl().add_to(m)
+        perc_x = (game_x - min_x) / range_x
+        perc_y = (max_y - game_y) / range_y # Y is usually inverted in SVG
         
-        return m
-    
+        return perc_x * 100, perc_y * 100 # Returns as percentage for flexible SVG usage
+
     def render_map(
         self,
         map_name: str,
         level: int = 1,
         player_position: Optional[Dict[str, float]] = None,
-        quests: Optional[List[Dict[str, Any]]] = None
-    ) -> folium.Map:
-        """
-        Render a complete map with all overlays.
+        quests: Optional[List[Dict[str, Any]]] = None,
+        width: int = 900,
+        height: int = 600
+    ) -> str:
+        """Render map as HTML using Leaflet.js."""
+        map_config = self._get_map_config(map_name)
         
-        Args:
-            map_name: Map name (e.g., 'customs')
-            level: Map level/floor
-            player_position: Player position dict (optional)
-            quests: Quest data list (optional)
+        if not map_config:
+            return f"<div style='color:red; background:#1a1a1a; padding:20px;'>Map config not found for {map_name}</div>"
             
-        Returns:
-            Complete Folium map object
-        """
-        # Create base map
-        m = self.create_map(map_name, level)
+        # Prioritize the tarkov-dev-svg-maps repo URL
+        map_key = map_config.get('key', '')
+        # Special case for streets because the key is 'streets-of-tarkov' but filename is 'StreetsOfTarkov.svg'
+        # We can use our MAP_FILES mapping logic or just construct it
+        svg_filename = f"{map_key.replace('-', ' ').title().replace(' ', '')}.svg"
+        if map_key == 'streets-of-tarkov':
+            svg_filename = "StreetsOfTarkov.svg"
+            
+        svg_url = f"{self.SVG_BASE_URL}/{svg_filename}"
         
-        # Add SVG overlay
-        m = self.add_svg_overlay(m, map_name, level)
+        # Leaflet Configuration
+        bounds = map_config.get('bounds', [[0, 0], [1000, 1000]])
+        # bounds are [[minX, maxY], [maxX, minY]] or similar
+        # For Leaflet L.ImageOverlay, we need [[minY, minX], [maxY, maxX]] usually, 
+        # but tarkov.dev uses CRS.Simple with a custom transformation.
         
-        # Add player marker if position provided
+        transform = map_config.get('transform', [1, 0, 1, 0])
+        # transform is [a, b, c, d] for L.Transformation(a, b, c, d)
+        
+        # Prepare markers for JS
+        js_markers = []
         if player_position:
-            m = self.add_player_marker(m, player_position, map_name)
-        
-        # Add quest markers if provided
+            js_markers.append({
+                'lat': player_position['y'],
+                'lng': player_position['x'],
+                'title': 'YOU',
+                'color': '#ff4141',
+                'rotation': player_position.get('rotation', 0),
+                'type': 'player'
+            })
+            
         if quests:
-            m = self.add_quest_markers(m, quests, map_name)
+            for i, quest in enumerate(quests):
+                if 'x' in quest and 'y' in quest:
+                    js_markers.append({
+                        'lat': quest['y'],
+                        'lng': quest['x'],
+                        'title': quest.get('quest_name', f'Quest {i+1}'),
+                        'color': '#0088ff',
+                        'type': 'quest'
+                    })
+
+        # Leaflet implementation
+        html = f"""
+        <div id="map-host" style="width:{width}px; height:{height}px; background:#0f1112; border:1px solid #2d3336; border-radius:8px; overflow:hidden;">
+            <div id="leaflet-map" style="width:100%; height:100%;"></div>
+        </div>
         
-        return m
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        
+        <script>
+            (function() {{
+                // Initialize Map
+                const map = L.map('leaflet-map', {{
+                    crs: L.CRS.Simple,
+                    attributionControl: false,
+                    zoomControl: true,
+                    minZoom: {map_config.get('minZoom', 1)},
+                    maxZoom: {map_config.get('maxZoom', 5)}
+                }});
 
+                // Set up Transformation (a, b, c, d)
+                // L.Transformation transforms coordinates: x' = a*x + b, y' = c*y + d
+                const t = {transform};
+                L.CRS.Simple.transformation = new L.Transformation(t[0], t[1], t[2], t[3]);
 
-# Example usage and testing
-if __name__ == "__main__":
-    print("Testing Map Renderer\n")
-    
-    renderer = MapRenderer()
-    
-    # Test player position
-    test_position = {
-        'x': 100.5,
-        'y': 200.3,
-        'z': 5.2,
-        'rotation': 45
-    }
-    
-    # Test quest data
-    test_quests = [
-        {
-            'quest_name': 'Delivery from the Past',
-            'objective_description': 'Place the package in the car trunk',
-            'x': 150.0,
-            'y': 180.0
-        }
-    ]
-    
-    # Render map
-    m = renderer.render_map(
-        map_name='customs',
-        level=1,
-        player_position=test_position,
-        quests=test_quests
-    )
-    
-    # Save to HTML for testing
-    output_path = "test_map.html"
-    m.save(output_path)
-    print(f"✅ Test map saved to {output_path}")
-    print("Open this file in a browser to view the interactive map.")
+                // SVG Overlay
+                const bounds = {bounds};
+                
+                // Calculate correct min/max to support various bounds formats
+                const x1 = bounds[0][0];
+                const y1 = bounds[0][1];
+                const x2 = bounds[1][0];
+                const y2 = bounds[1][1];
+                
+                const minX = Math.min(x1, x2);
+                const maxX = Math.max(x1, x2);
+                const minY = Math.min(y1, y2);
+                const maxY = Math.max(y1, y2);
+
+                // Leaflet Simple CRS uses [y, x] order
+                const southWest = L.latLng(minY, minX);
+                const northEast = L.latLng(maxY, maxX);
+                const mapBounds = L.latLngBounds(southWest, northEast);
+
+                const svgLayer = L.imageOverlay('{svg_url}', mapBounds);
+                svgLayer.addTo(map);
+
+                // Fit map to bounds
+                map.fitBounds(mapBounds);
+
+                // Markers
+                const markers = {json.dumps(js_markers)};
+                markers.forEach(m => {{
+                    let icon;
+                    if (m.type === 'player') {{
+                        icon = L.divIcon({{
+                            className: 'player-marker',
+                            html: `<div style="transform: rotate(${{m.rotation}}deg); color: ${{m.color}}; font-size: 24px; text-shadow: 0 0 3px black;">▲</div>`,
+                            iconSize: [30, 30],
+                            iconAnchor: [15, 15]
+                        }});
+                    }} else {{
+                        icon = L.divIcon({{
+                            className: 'quest-marker',
+                            html: `<div style="background: ${{m.color}}; border: 2px solid white; border-radius: 50%; width: 14px; height: 14px; box-shadow: 0 0 5px black;"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        }});
+                    }}
+
+                    L.marker([m.lat, m.lng], {{ icon: icon }})
+                        .addTo(map)
+                        .bindPopup(`<b>${{m.title}}</b>`);
+                }});
+
+                // Coordinate Logger for debugging
+                map.on('click', function(e) {{
+                    console.log("Clicked at: " + e.latlng.lng.toFixed(2) + ", " + e.latlng.lat.toFixed(2));
+                }});
+            }})();
+        </script>
+        
+        <style>
+            .player-marker, .quest-marker {{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                pointer-events: auto !important;
+            }}
+            .leaflet-container {{
+                background: #0f1112 !important;
+            }}
+            .leaflet-popup-content-wrapper, .leaflet-popup-tip {{
+                background: #1a1c1d;
+                color: #e3e3e3;
+                border: 1px solid #2d3336;
+            }}
+        </style>
+        """
+        return html

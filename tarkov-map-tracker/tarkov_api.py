@@ -54,7 +54,7 @@ class TarkovAPI:
                 self.API_URL,
                 json={'query': query, 'variables': variables or {}},
                 headers={'Content-Type': 'application/json'},
-                timeout=10
+                timeout=30
             )
             response.raise_for_status()
             result = response.json()
@@ -137,6 +137,34 @@ class TarkovAPI:
                     maps {
                         name
                         normalizedName
+                    }
+                    ...on TaskObjectiveBasic {
+                        zones {
+                            map { normalizedName }
+                            position { x y z }
+                        }
+                    }
+                    ...on TaskObjectiveItem {
+                        zones {
+                            map { normalizedName }
+                            position { x y z }
+                        }
+                    }
+                    ...on TaskObjectiveMark {
+                        zones {
+                            map { normalizedName }
+                            position { x y z }
+                        }
+                    }
+                    ...on TaskObjectiveQuestItem {
+                        zones {
+                            map { normalizedName }
+                            position { x y z }
+                        }
+                        possibleLocations {
+                            map { normalizedName }
+                            positions { x y z }
+                        }
                     }
                 }
             }
@@ -240,9 +268,25 @@ class TarkovAPI:
         
         for quest in quests:
             for obj in quest.get('objectives', []):
-                # Check if objective has map location data
-                obj_maps = obj.get('maps', [])
-                if any(m.get('normalizedName', '').lower() == map_name.lower() for m in obj_maps):
+                coords = []
+                
+                # Extract coordinates from zones
+                for zone in obj.get('zones', []) or []:
+                    zone_map = zone.get('map', {}).get('normalizedName', '').lower()
+                    if zone_map == map_name.lower():
+                        pos = zone.get('position')
+                        if pos:
+                            coords.append({'x': pos['x'], 'y': pos['y']})
+                            
+                # Extract coordinates from possibleLocations
+                for loc in obj.get('possibleLocations', []) or []:
+                    loc_map = loc.get('map', {}).get('normalizedName', '').lower()
+                    if loc_map == map_name.lower():
+                        for pos in loc.get('positions', []) or []:
+                            coords.append({'x': pos['x'], 'y': pos['y']})
+                
+                # If we have coordinates, add them
+                for coord in coords:
                     objectives_with_locations.append({
                         'quest_id': quest['id'],
                         'quest_name': quest['name'],
@@ -251,6 +295,8 @@ class TarkovAPI:
                         'objective_type': obj['type'],
                         'optional': obj.get('optional', False),
                         'trader': quest.get('trader', {}).get('name', 'Unknown'),
+                        'x': coord['x'],
+                        'y': coord['y']
                     })
         
         return objectives_with_locations

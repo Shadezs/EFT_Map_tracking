@@ -209,21 +209,18 @@ def main():
             quest_objectives = api.get_quest_objectives_with_locations(st.session_state.current_map)
             quests = quest_objectives
         
-        # Create map
-        map_obj = renderer.render_map(
+        # Create map HTML
+        map_html = renderer.render_map(
             map_name=st.session_state.current_map,
             level=map_level,
             player_position=st.session_state.current_position,
-            quests=quests
+            quests=quests,
+            width=900,
+            height=600
         )
         
-        # Display map using streamlit-folium
-        try:
-            from streamlit_folium import st_folium
-            st_folium(map_obj, width=900, height=600)
-        except ImportError:
-            # Fallback: display as HTML
-            st.components.v1.html(map_obj._repr_html_(), height=600)
+        # Display map
+        st.components.v1.html(map_html, height=650, scrolling=True)
     
     with col2:
         st.header("📊 Status")
